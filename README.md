@@ -8,12 +8,14 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 
 ## 🚀 Features
 
--   **13+ Chunking Strategies**: From simple Fixed-Size to advanced Semantic and LLM-based splitting.
--   **Real-time Visualization**: See exactly how text is split, with immediate feedback on character and token counts.
+-   **15+ Chunking Strategies**: Including Recursive, Code-specific, Regex, Semantic, and more.
+-   **Real-time Visualization**: Histograms, Heatmaps, and Minimaps for deep analysis.
+-   **Advanced Processing**: Intl.Segmenter for precise sentence splitting.
 -   **Gemini AI Integration**: Leverages Google's Gemini 2.5 Flash for semantic, linguistic, and intelligent segmentation.
--   **Token Estimation**: Provides real-time estimates of token usage to help optimize for LLM context windows.
--   **Responsive Design**: A fluid, glassmorphism-inspired UI that works on desktop and large tablets.
+-   **Token Estimation**: Provides real-time estimates of token usage.
+-   **Responsive Design**: A fluid, glassmorphism-inspired UI.
 -   **Performance Metrics**: Tracks processing time, chunk counts, and average sizes.
+
 
 ---
 
@@ -84,31 +86,29 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 
 ## ✅ Feature Roadmap & Todo List
 
-A prioritized checklist of **100+ features** categorized to transform Chunk.io into the ultimate RAG workspace.
-
 ### 🧠 Core Strategy Engine
-- [ ] Implement **Recursive Character Text Splitter** (LangChain style).
-- [ ] Add **Code Splitter** (AST-based chunking for Python/JS/Rust).
-- [ ] Implement **MarkdownHeaderSplitter** with customizable hierarchy depth.
-- [ ] Add **Regex Splitter** with user-defined patterns.
-- [ ] Create **NLTK/Spacy** integration for precise sentence boundary detection.
+- [x] Implement **Recursive Character Text Splitter** (LangChain style).
+- [x] Add **Code Splitter** (Heuristic-based chunking for Python/JS).
+- [x] Implement **MarkdownHeaderSplitter** with customizable hierarchy depth (Via Document Strategy).
+- [x] Add **Regex Splitter** with user-defined patterns.
+- [x] Create **NLTK/Spacy** integration for precise sentence boundary detection (Implemented via `Intl.Segmenter`).
 - [ ] Add **"Stop Sequence"** support for custom delimiters.
 - [ ] Implement **Soft Overlap** (overlap only if sentence is cut).
-- [ ] Add **Min Chunk Size** threshold (merge small stragglers).
+- [x] Add **Min Chunk Size** threshold (merge small stragglers).
 - [ ] Create **Language Detection** to auto-select tokenizer.
 - [ ] Add **Entity-Preserving Chunking** (don't split named entities).
 
 ### 📊 Visualization & Analytics
-- [ ] **Heatmap View**: Color chunks by token density.
+- [x] **Heatmap View**: Color chunks by token density.
 - [ ] **Similarity Graph**: Node-link diagram showing semantic similarity between chunks.
-- [ ] **Token Distribution Histogram**: Visualize spread of chunk sizes.
+- [x] **Token Distribution Histogram**: Visualize spread of chunk sizes.
 - [ ] **3D Embedding Space**: Project chunks into 3D space using PCA/t-SNE.
-- [ ] **Keyword Cloud** per chunk.
+- [x] **Keyword Cloud** per chunk.
 - [ ] **Dependency Parsing Tree** visualization for Linguistic strategy.
 - [ ] **Diff View**: Compare two strategies side-by-side.
 - [ ] **"Lost Context" Highlighter**: Highlight words cut off at boundaries.
-- [ ] **Scroll Sync**: Sync source text scroll with chunk visualizer.
-- [ ] **Mini-map**: High-level overview of the document segmentation.
+- [x] **Scroll Sync**: Sync source text scroll with chunk visualizer (Click-to-scroll implemented).
+- [x] **Mini-map**: High-level overview of the document segmentation.
 
 ### 🤖 AI & LLM Integration
 - [ ] **Prompt Playground**: Customize the system prompt for LLM strategies.
@@ -118,9 +118,6 @@ A prioritized checklist of **100+ features** categorized to transform Chunk.io i
 - [ ] **Question Generation**: AI generates synthetic QA pairs per chunk (for RAG eval).
 - [ ] **Labeling**: Auto-tag chunks with categories/topics.
 - [ ] **Hallucination Check**: Analyze if a chunk stands alone factually.
-- [ ] **Multi-Model Compare**: Run Gemini vs. GPT-4 splitting simultaneously.
-- [ ] **Fine-tuning Dataset Gen**: Export chunks in JSONL for fine-tuning.
-- [ ] **Token Counter Accuracy**: Switch between tiktoken (OpenAI) and Gemini tokenizers.
 
 ### 📥 Data Ingestion (Input)
 - [ ] **PDF Parsing**: Drag & drop PDF support with OCR.

@@ -1,20 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Chunk, ProcessingStats } from '../types';
-import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip } from 'recharts';
-import { Copy, Hash, Clock, FileText } from 'lucide-react';
+import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { Copy, Hash, Clock, FileText, Activity, AlignLeft, Tag } from 'lucide-react';
 
 interface VisualizerProps {
   chunks: Chunk[];
   stats: ProcessingStats | null;
   loading: boolean;
+  onChunkClick?: (chunkId: string) => void;
 }
 
-export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading }) => {
+export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading, onChunkClick }) => {
+  const [viewMode, setViewMode] = useState<'grid' | 'heatmap'>('grid');
+  
   const chartData = chunks.map((c, i) => ({
     name: i,
     size: c.charCount,
     tokens: c.tokenCount
   }));
+
+  const distributionData = stats?.tokenDistribution || [];
 
   if (loading) {
     return (
@@ -31,13 +36,28 @@ export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading }
   return (
     <div className="h-full flex flex-col bg-[#0f172a] overflow-hidden">
       {/* Metrics Header */}
-      <div className="h-48 border-b border-white/10 p-6 flex gap-6 shrink-0">
+      <div className="h-auto border-b border-white/10 p-6 flex flex-col xl:flex-row gap-6 shrink-0 bg-[#0f172a] z-10 shadow-xl">
         <div className="flex-1 flex flex-col justify-between">
-          <div>
-            <h2 className="text-white font-display text-xl font-medium">Analysis Results</h2>
-            <p className="text-slate-400 text-sm mt-1">Real-time segmentation metrics</p>
+          <div className="flex justify-between items-start">
+            <div>
+                <h2 className="text-white font-display text-xl font-medium">Analysis Results</h2>
+                <p className="text-slate-400 text-sm mt-1">Real-time segmentation metrics</p>
+            </div>
+            <div className="flex gap-2 bg-slate-900 p-1 rounded-lg border border-white/5">
+                <button 
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-electric-indigo text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+                    <AlignLeft className="w-4 h-4" />
+                </button>
+                <button 
+                    onClick={() => setViewMode('heatmap')}
+                    className={`p-1.5 rounded-md transition-all ${viewMode === 'heatmap' ? 'bg-electric-indigo text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+                    <Activity className="w-4 h-4" />
+                </button>
+            </div>
           </div>
-          <div className="grid grid-cols-4 gap-4 mt-4">
+          
+          <div className="grid grid-cols-3 gap-4 mt-4">
              <div className="glass-panel p-3 rounded-lg">
                 <div className="flex items-center gap-2 text-slate-400 mb-1">
                    <Hash className="w-3 h-3" /> <span className="text-[10px] uppercase font-bold">Chunks</span>
@@ -59,50 +79,117 @@ export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading }
           </div>
         </div>
         
-        {/* Micro Chart */}
-        <div className="w-1/3 h-full hidden lg:block">
-           <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                 <Tooltip 
-                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} 
-                    itemStyle={{ color: '#818cf8' }}
-                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                 />
-                 <Bar dataKey="size" fill="#6366f1" radius={[2, 2, 0, 0]} />
-              </BarChart>
-           </ResponsiveContainer>
+        {/* Charts */}
+        <div className="flex gap-4 h-32 w-full xl:w-1/2">
+            {/* Size Distribution */}
+            <div className="flex-1 bg-slate-900/50 rounded-lg p-2 border border-white/5 relative">
+                <p className="text-[10px] uppercase font-bold text-slate-500 absolute top-2 left-2 z-10">Size Dist.</p>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff', fontSize: '12px' }} 
+                            itemStyle={{ color: '#818cf8' }}
+                            cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                        />
+                        <Bar dataKey="size" fill="#6366f1" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+            {/* Histogram */}
+            <div className="flex-1 bg-slate-900/50 rounded-lg p-2 border border-white/5 relative hidden sm:block">
+                 <p className="text-[10px] uppercase font-bold text-slate-500 absolute top-2 left-2 z-10">Histogram</p>
+                 <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={distributionData}>
+                        <XAxis dataKey="range" hide />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff', fontSize: '12px' }} 
+                            cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                        />
+                        <Bar dataKey="count" fill="#4f46e5" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
         </div>
       </div>
 
-      {/* Chunk Grid */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
-          {chunks.map((chunk, idx) => (
-            <div 
-              key={chunk.id} 
-              className="group relative bg-slate-900 border border-white/5 rounded-xl p-5 hover:border-electric-indigo/50 transition-all duration-300 hover:shadow-[0_4px_20px_-2px_rgba(99,102,241,0.1)] flex flex-col"
-            >
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] font-mono text-electric-indigo bg-electric-indigo/10 px-2 py-0.5 rounded">
-                  ID: {idx + 1}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono">
-                  {chunk.charCount} chars
-                </span>
-              </div>
-              
-              <div className="text-slate-300 text-sm font-light leading-relaxed whitespace-pre-wrap font-sans mb-4 grow">
-                {chunk.content}
-              </div>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Minimap */}
+        <div className="w-12 border-r border-white/5 bg-slate-900 flex flex-col items-center py-4 gap-1 overflow-y-auto scrollbar-none shrink-0">
+           {chunks.map((c, i) => (
+              <div 
+                key={i} 
+                className="w-4 rounded-sm transition-all hover:scale-110 cursor-pointer"
+                style={{
+                    height: `${Math.max(4, (c.charCount / (stats?.maxSize || 1)) * 40)}px`,
+                    backgroundColor: `hsla(245, 80%, ${Math.max(30, 100 - (c.tokenCount / 2))}%, 0.8)`
+                }}
+                title={`Chunk ${i+1}: ${c.charCount} chars`}
+                onClick={() => document.getElementById(c.id)?.scrollIntoView({ behavior: 'smooth' })}
+              />
+           ))}
+        </div>
 
-              <div className="pt-3 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                 <span className="text-[10px] text-slate-600">Token est: {chunk.tokenCount}</span>
-                 <button className="text-slate-400 hover:text-white transition-colors" title="Copy Chunk">
-                    <Copy className="w-3 h-3" onClick={() => navigator.clipboard.writeText(chunk.content)}/>
-                 </button>
-              </div>
-            </div>
-          ))}
+        {/* Chunk Grid */}
+        <div className="flex-1 overflow-y-auto p-6 scroll-smooth" id="chunk-container">
+            {viewMode === 'heatmap' ? (
+                <div className="flex flex-wrap gap-1">
+                    {chunks.map((chunk, idx) => (
+                        <div 
+                            id={chunk.id}
+                            key={chunk.id}
+                            className="transition-all hover:scale-105 cursor-pointer relative group"
+                            style={{
+                                width: '12px',
+                                height: '12px',
+                                backgroundColor: `hsla(245, 80%, ${Math.max(20, 90 - (chunk.tokenCount / 5))}%, 1)`,
+                                borderRadius: '2px'
+                            }}
+                            onClick={() => { setViewMode('grid'); setTimeout(() => document.getElementById(chunk.id)?.scrollIntoView({block: 'center'}), 100); }}
+                        >
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 pointer-events-none">
+                                Chunk {idx+1}: {chunk.tokenCount} tokens
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+                {chunks.map((chunk, idx) => (
+                    <div 
+                    id={chunk.id}
+                    key={chunk.id} 
+                    className="group relative bg-slate-900 border border-white/5 rounded-xl p-5 hover:border-electric-indigo/50 transition-all duration-300 hover:shadow-[0_4px_20px_-2px_rgba(99,102,241,0.1)] flex flex-col"
+                    >
+                    <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-electric-indigo bg-electric-indigo/10 px-2 py-0.5 rounded">
+                            #{idx + 1}
+                            </span>
+                            {chunk.keywords && chunk.keywords.slice(0, 2).map(k => (
+                                <span key={k} className="text-[9px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <Tag className="w-2 h-2" /> {k}
+                                </span>
+                            ))}
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                        {chunk.charCount} chars
+                        </span>
+                    </div>
+                    
+                    <div className="text-slate-300 text-sm font-light leading-relaxed whitespace-pre-wrap font-sans mb-4 grow font-mono text-[13px]">
+                        {chunk.content}
+                    </div>
+
+                    <div className="pt-3 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-slate-600">Token est: {chunk.tokenCount}</span>
+                        <button className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-[10px]" onClick={() => navigator.clipboard.writeText(chunk.content)}>
+                            <Copy className="w-3 h-3" /> COPY
+                        </button>
+                    </div>
+                    </div>
+                ))}
+                </div>
+            )}
         </div>
       </div>
     </div>

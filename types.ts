@@ -12,6 +12,8 @@ export enum StrategyType {
   Linguistic = 'Linguistic Chunking',
   Hybrid = 'Hybrid/Adaptive Chunking',
   LLM = 'LLM-Based Chunking',
+  Code = 'Code Splitter',
+  Regex = 'Regex Splitter',
 }
 
 export interface StrategyDefinition {
@@ -32,6 +34,7 @@ export interface Chunk {
   charCount: number;
   start?: number;
   end?: number;
+  keywords?: string[];
 }
 
 export interface ProcessingStats {
@@ -40,4 +43,5 @@ export interface ProcessingStats {
   minSize: number;
   maxSize: number;
   processingTimeMs: number;
+  tokenDistribution: { range: string; count: number }[];
 }

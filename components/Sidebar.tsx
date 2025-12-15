@@ -10,6 +10,10 @@ interface SidebarProps {
   setChunkSize: (n: number) => void;
   overlap: number;
   setOverlap: (n: number) => void;
+  minChunkSize: number;
+  setMinChunkSize: (n: number) => void;
+  regexPattern: string;
+  setRegexPattern: (s: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -18,7 +22,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   chunkSize,
   setChunkSize,
   overlap,
-  setOverlap
+  setOverlap,
+  minChunkSize,
+  setMinChunkSize,
+  regexPattern,
+  setRegexPattern
 }) => {
   const currentStrategyInfo = STRATEGIES.find(s => s.name === selectedStrategy);
 
@@ -46,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
                 }`}
               >
-                <span className="font-medium truncate">{s.name.replace(' Chunking', '')}</span>
+                <span className="font-medium truncate">{s.name.replace(' Chunking', '').replace(' Splitter', '')}</span>
                 {s.requiresAI && (
                   <Zap className={`w-3 h-3 ${selectedStrategy === s.name ? 'text-electric-indigo' : 'text-slate-600 group-hover:text-slate-400'}`} />
                 )}
@@ -58,15 +66,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <h2 className="text-slate-500 font-semibold mb-3 px-2 text-xs uppercase tracking-wider">Configuration</h2>
           <div className="glass-panel rounded-xl p-4 space-y-5">
+            {/* Common Configs */}
             <div>
               <div className="flex justify-between mb-2">
-                <label className="text-slate-300 font-medium text-xs">Chunk Size (chars)</label>
+                <label className="text-slate-300 font-medium text-xs">Target Size (chars)</label>
                 <span className="text-electric-indigo font-mono text-xs">{chunkSize}</span>
               </div>
               <input
                 type="range"
                 min="50"
-                max="2000"
+                max="4000"
                 step="50"
                 value={chunkSize}
                 onChange={(e) => setChunkSize(Number(e.target.value))}
@@ -89,6 +98,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
               />
             </div>
+            
+            <div>
+              <div className="flex justify-between mb-2">
+                <label className="text-slate-300 font-medium text-xs">Min Chunk Size</label>
+                <span className="text-electric-indigo font-mono text-xs">{minChunkSize}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="500"
+                step="10"
+                value={minChunkSize}
+                onChange={(e) => setMinChunkSize(Number(e.target.value))}
+                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Merges small chunks with neighbors</p>
+            </div>
+
+            {/* Strategy Specific Configs */}
+            {selectedStrategy === StrategyType.Regex && (
+               <div>
+                  <label className="text-slate-300 font-medium text-xs mb-2 block">Custom Regex Pattern</label>
+                  <input 
+                    type="text" 
+                    value={regexPattern}
+                    onChange={(e) => setRegexPattern(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-electric-indigo font-mono focus:border-electric-indigo outline-none"
+                    placeholder="\n\n"
+                  />
+               </div>
+            )}
+            
+            {selectedStrategy === StrategyType.Recursive && (
+               <div>
+                  <label className="text-slate-300 font-medium text-xs mb-2 block">Separators (Auto)</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {["\\n\\n", "\\n", "space"].map(sep => (
+                        <span key={sep} className="px-2 py-1 bg-slate-800 rounded text-[10px] text-slate-400 font-mono border border-slate-700">{sep}</span>
+                    ))}
+                  </div>
+               </div>
+            )}
           </div>
         </div>
 

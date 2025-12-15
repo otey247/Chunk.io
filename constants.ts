@@ -13,9 +13,27 @@ export const STRATEGIES: StrategyDefinition[] = [
   {
     id: 'recursive',
     name: StrategyType.Recursive,
-    description: "Splits text using a hierarchy of separators (paragraphs, then sentences) to find natural boundaries.",
-    bestFor: ["General-purpose RAG", "Preserving context"],
+    description: "Iteratively splits text using a hierarchy of separators (e.g., \\n\\n, \\n, space) to find the largest possible chunks that fit constraints.",
+    bestFor: ["LangChain compatibility", "General-purpose RAG", "Preserving context"],
     worstFor: ["Highly specialized formats", "Streaming data"],
+    complexity: 'Medium',
+    requiresAI: false
+  },
+  {
+    id: 'code',
+    name: StrategyType.Code,
+    description: "Splits code based on language-specific syntax trees (classes, functions) to preserve logic.",
+    bestFor: ["Python", "JavaScript/TypeScript", "Rust"],
+    worstFor: ["Natural language", "Minified code"],
+    complexity: 'High',
+    requiresAI: false
+  },
+  {
+    id: 'regex',
+    name: StrategyType.Regex,
+    description: "Splits text based on a user-defined Regular Expression pattern.",
+    bestFor: ["Custom formats", "Log files", "Specific delimiters"],
+    worstFor: ["General prose", "Variable structure"],
     complexity: 'Medium',
     requiresAI: false
   },
@@ -40,7 +58,7 @@ export const STRATEGIES: StrategyDefinition[] = [
   {
     id: 'sentence',
     name: StrategyType.Sentence,
-    description: "Splits at sentence boundaries, grouping them until a size threshold is reached.",
+    description: "Splits at precise sentence boundaries using Intl.Segmenter, grouping them until a size threshold is reached.",
     bestFor: ["QA Systems", "News articles"],
     worstFor: ["Lists", "Complex formatting"],
     complexity: 'Low',

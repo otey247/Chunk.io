@@ -8,10 +8,15 @@ import { Edit3, Play } from 'lucide-react';
 
 const App: React.FC = () => {
   const [text, setText] = useState<string>(INITIAL_TEXT);
-  const [strategy, setStrategy] = useState<StrategyType>(StrategyType.FixedSize);
+  const [strategy, setStrategy] = useState<StrategyType>(StrategyType.Recursive);
   const [chunks, setChunks] = useState<Chunk[]>([]);
+  
+  // Settings
   const [chunkSize, setChunkSize] = useState<number>(500);
   const [overlap, setOverlap] = useState<number>(50);
+  const [minChunkSize, setMinChunkSize] = useState<number>(20);
+  const [regexPattern, setRegexPattern] = useState<string>("\\n\\n");
+
   const [loading, setLoading] = useState<boolean>(false);
   const [stats, setStats] = useState<ProcessingStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,18 +30,34 @@ const App: React.FC = () => {
       const generatedChunks = await processText(text, {
         chunkSize,
         overlap,
-        strategy
+        minChunkSize,
+        strategy,
+        regexPattern
       });
 
       setChunks(generatedChunks);
       
       const totalSize = generatedChunks.reduce((acc, c) => acc + c.charCount, 0);
+      const sizes = generatedChunks.map(c => c.charCount);
+
+      // Simple distribution calc
+      const sizeMap = new Map<string, number>();
+      generatedChunks.forEach(c => {
+        const range = Math.floor(c.charCount / 100) * 100;
+        const key = `${range}`;
+        sizeMap.set(key, (sizeMap.get(key) || 0) + 1);
+      });
+      const tokenDistribution = Array.from(sizeMap.entries())
+        .map(([range, count]) => ({ range, count }))
+        .sort((a, b) => parseInt(a.range) - parseInt(b.range));
+
       setStats({
         totalChunks: generatedChunks.length,
-        avgSize: totalSize / (generatedChunks.length || 1),
-        minSize: Math.min(...generatedChunks.map(c => c.charCount)),
-        maxSize: Math.max(...generatedChunks.map(c => c.charCount)),
-        processingTimeMs: performance.now() - startTime
+        avgSize: generatedChunks.length ? totalSize / generatedChunks.length : 0,
+        minSize: Math.min(...sizes),
+        maxSize: Math.max(...sizes),
+        processingTimeMs: performance.now() - startTime,
+        tokenDistribution
       });
     } catch (err) {
       setError("Failed to process chunks. Please try a different strategy or text.");
@@ -44,7 +65,7 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [text, chunkSize, overlap, strategy]);
+  }, [text, chunkSize, overlap, strategy, minChunkSize, regexPattern]);
 
   // Debounce the runChunking for local strategies, manual trigger for AI
   useEffect(() => {
@@ -74,6 +95,10 @@ const App: React.FC = () => {
           setChunkSize={setChunkSize}
           overlap={overlap}
           setOverlap={setOverlap}
+          minChunkSize={minChunkSize}
+          setMinChunkSize={setMinChunkSize}
+          regexPattern={regexPattern}
+          setRegexPattern={setRegexPattern}
         />
       </div>
 
