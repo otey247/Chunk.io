@@ -13,8 +13,9 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 -   **Advanced Processing**: Intl.Segmenter for precise sentence splitting.
 -   **Gemini AI Integration**: Leverages Google's Gemini 2.5 Flash for semantic, linguistic, and intelligent segmentation.
 -   **AI Enrichment**: Auto-summarize, generate Q&A, and detect hallucinations in chunks.
+-   **Multi-Modal Ingestion**: Support for PDF, DOCX, CSV, MD, TXT, and Voice Dictation.
 -   **Token Estimation & Costing**: Provides real-time estimates of token usage and API costs.
--   **Responsive Design**: A fluid, glassmorphism-inspired UI.
+-   **Responsive Design**: A fluid, glassmorphism-inspired UI with Dark/Light mode.
 
 ---
 
@@ -25,6 +26,7 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 -   **Visualization**: Recharts
 -   **Icons**: Lucide React
 -   **AI/ML**: Google GenAI SDK (Gemini 2.5)
+-   **Parsing**: PDF.js, Mammoth, PapaParse
 -   **Build Tool**: Vite (Recommended)
 
 ---
@@ -100,16 +102,17 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 - [x] **Hallucination Check**: Analyze if a chunk stands alone factually.
 
 ### 📥 Data Ingestion (Input)
-- [ ] **PDF Parsing**: Drag & drop PDF support with OCR.
-- [ ] **URL Scraper**: Fetch and clean content from a website.
-- [ ] **YouTube Transcripts**: Ingest video IDs and chunk the captions.
-- [ ] **Docx/Pptx Support**: Handle Office documents.
+- [x] **PDF Parsing**: Drag & drop PDF support (Client-side).
+- [x] **URL Scraper**: Fetch and clean content (Simulation for Demo).
+- [x] **YouTube Transcripts**: Ingest video IDs (Simulation for Demo).
+- [x] **Docx/Pptx Support**: Handle Office documents via Mammoth.js.
 - [ ] **Notion Integration**: Connect to Notion pages.
 - [ ] **Google Drive Picker**: Select docs directly from Drive.
 - [ ] **Sitemap Crawler**: Ingest an entire documentation site.
 - [ ] **Code Repository Ingest**: Clone a GitHub repo and chunk all files.
-- [ ] **CSV/Excel**: Column-aware chunking for structured data.
-- [ ] **Audio Upload**: Whisper integration for speech-to-text chunking.
+- [x] **CSV/Excel**: Column-aware chunking via PapaParse.
+- [x] **Audio Upload**: Web Speech API integration.
+- [x] **Dark/Light Mode**: Full theme toggle.
 
 ### 📤 Data Egress (Export)
 - [ ] **Vector DB Sync**: Direct upload to Pinecone.
@@ -183,6 +186,7 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 - [ ] **Compliance export**: GDPR data export.
 - [ ] **Vulnerability Scanning**: Automated dependabot integration.
 
+---
 
 ---
 

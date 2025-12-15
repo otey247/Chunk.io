@@ -13,7 +13,10 @@
     "@google/genai": "^1.33.0",
     "react-dom": "^19.2.3",
     "lucide-react": "^0.561.0",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "pdfjs-dist": "3.11.174",
+    "mammoth": "1.6.0",
+    "papaparse": "5.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
