@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Visualizer } from './components/Visualizer';
-import { StrategyType, Chunk, ProcessingStats } from './types';
+import { StrategyType, Chunk, ProcessingStats, GeminiModel } from './types';
 import { INITIAL_TEXT, STRATEGIES } from './constants';
 import { processText } from './services/chunkingService';
 import { Edit3, Play } from 'lucide-react';
@@ -17,6 +17,16 @@ const App: React.FC = () => {
   const [minChunkSize, setMinChunkSize] = useState<number>(20);
   const [regexPattern, setRegexPattern] = useState<string>("\\n\\n");
 
+  // AI Settings
+  const [selectedModel, setSelectedModel] = useState<GeminiModel>(GeminiModel.Flash);
+  const [customPrompt, setCustomPrompt] = useState<string>("");
+  const [enrichment, setEnrichment] = useState({
+    summarize: false,
+    qa: false,
+    label: false,
+    hallucination: false,
+  });
+
   const [loading, setLoading] = useState<boolean>(false);
   const [stats, setStats] = useState<ProcessingStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,65 +34,52 @@ const App: React.FC = () => {
   const runChunking = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const startTime = performance.now();
-
+    
     try {
-      const generatedChunks = await processText(text, {
+      const { chunks: generatedChunks, stats: generatedStats } = await processText(text, {
         chunkSize,
         overlap,
         minChunkSize,
         strategy,
-        regexPattern
+        regexPattern,
+        model: selectedModel,
+        customPrompt,
+        enrichment
       });
 
       setChunks(generatedChunks);
-      
-      const totalSize = generatedChunks.reduce((acc, c) => acc + c.charCount, 0);
-      const sizes = generatedChunks.map(c => c.charCount);
+      setStats(generatedStats);
 
-      // Simple distribution calc
-      const sizeMap = new Map<string, number>();
-      generatedChunks.forEach(c => {
-        const range = Math.floor(c.charCount / 100) * 100;
-        const key = `${range}`;
-        sizeMap.set(key, (sizeMap.get(key) || 0) + 1);
-      });
-      const tokenDistribution = Array.from(sizeMap.entries())
-        .map(([range, count]) => ({ range, count }))
-        .sort((a, b) => parseInt(a.range) - parseInt(b.range));
-
-      setStats({
-        totalChunks: generatedChunks.length,
-        avgSize: generatedChunks.length ? totalSize / generatedChunks.length : 0,
-        minSize: Math.min(...sizes),
-        maxSize: Math.max(...sizes),
-        processingTimeMs: performance.now() - startTime,
-        tokenDistribution
-      });
     } catch (err) {
-      setError("Failed to process chunks. Please try a different strategy or text.");
+      setError("Failed to process chunks. Please try a different strategy or check your API Key.");
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [text, chunkSize, overlap, strategy, minChunkSize, regexPattern]);
+  }, [text, chunkSize, overlap, strategy, minChunkSize, regexPattern, selectedModel, customPrompt, enrichment]);
 
-  // Debounce the runChunking for local strategies, manual trigger for AI
+  // Debounce the runChunking for local strategies, manual trigger for AI or heavy enrichment
   useEffect(() => {
     const isAI = STRATEGIES.find(s => s.name === strategy)?.requiresAI;
-    if (!isAI) {
+    const hasEnrichment = Object.values(enrichment).some(v => v);
+    
+    // Only auto-run if it's local deterministic strategy AND no heavy enrichment
+    if (!isAI && !hasEnrichment) {
       const timer = setTimeout(() => {
         runChunking();
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [runChunking, strategy]);
+  }, [runChunking, strategy, enrichment]);
 
   const handleRunAI = () => {
       runChunking();
   }
 
   const isAIStrategy = STRATEGIES.find(s => s.name === strategy)?.requiresAI;
+  const hasEnrichment = Object.values(enrichment).some(v => v);
+  // Show manual run button if using AI Strategy OR Enrichment is enabled
+  const showManualRun = isAIStrategy || hasEnrichment;
 
   return (
     <div className="flex h-screen w-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
@@ -99,6 +96,13 @@ const App: React.FC = () => {
           setMinChunkSize={setMinChunkSize}
           regexPattern={regexPattern}
           setRegexPattern={setRegexPattern}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          customPrompt={customPrompt}
+          setCustomPrompt={setCustomPrompt}
+          enrichment={enrichment}
+          setEnrichment={setEnrichment}
+          estimatedCost={stats?.estimatedCost || 0}
         />
       </div>
 
@@ -114,12 +118,12 @@ const App: React.FC = () => {
                  <h2 className="text-white font-display text-lg flex items-center gap-2">
                     <Edit3 className="w-4 h-4 text-electric-indigo" /> Source Document
                  </h2>
-                 {isAIStrategy && (
+                 {showManualRun && (
                     <button 
                         onClick={handleRunAI}
                         disabled={loading}
                         className="bg-electric-indigo hover:bg-electric-accent text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {loading ? 'Thinking...' : 'Run Analysis'} <Play className="w-3 h-3 fill-current" />
+                        {loading ? 'Processing...' : 'Run Analysis'} <Play className="w-3 h-3 fill-current" />
                     </button>
                  )}
               </div>

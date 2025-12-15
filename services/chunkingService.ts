@@ -1,5 +1,6 @@
-import { Chunk, StrategyType } from "../types";
-import { chunkWithGemini } from "./geminiService";
+import { Chunk, StrategyType, GeminiModel } from "../types";
+import { chunkWithGemini, enrichChunk } from "./geminiService";
+import { MODEL_PRICING } from "../constants";
 
 interface ChunkingOptions {
   chunkSize: number; // chars
@@ -8,6 +9,16 @@ interface ChunkingOptions {
   strategy: StrategyType;
   regexPattern?: string;
   separators?: string[];
+  
+  // AI Config
+  model: GeminiModel;
+  customPrompt?: string;
+  enrichment?: {
+    summarize: boolean;
+    qa: boolean;
+    label: boolean;
+    hallucination: boolean;
+  };
 }
 
 // --- Helper Functions ---
@@ -125,33 +136,25 @@ const regexChunker = (text: string, pattern: string): string[] => {
 };
 
 const codeChunker = (text: string, chunkSize: number): string[] => {
-  // Heuristic based code splitter
-  // 1. Try to split by top-level class/function definitions
-  // 2. Fallback to line based
   const codeSeparators = [
     /(?=^class\s+)|(?=^def\s+)|(?=^function\s+)|(?=^export\s+)/m as any,
     "\n\n", 
     "\n", 
     ""
   ];
-  
   return recursiveChunker(text, chunkSize, 0, codeSeparators);
 };
 
 const sentenceChunker = (text: string, maxSize: number): string[] => {
-  // Uses Intl.Segmenter for precise sentence boundaries
   const IntlAny = Intl as any;
   if (!IntlAny.Segmenter) {
-    // Fallback
     return text.match(/[^.!?]+[.!?]+["']?|.+/g)?.map(t => t.trim()) || [text];
   }
-  
   const segmenter = new IntlAny.Segmenter("en", { granularity: "sentence" });
   const segments = Array.from(segmenter.segment(text)) as { segment: string }[];
   
   const chunks: string[] = [];
   let currentChunk = "";
-
   for (const seg of segments) {
     const sentence = seg.segment;
     if ((currentChunk.length + sentence.length) > maxSize && currentChunk.length > 0) {
@@ -180,7 +183,6 @@ const paragraphChunker = (text: string): string[] => {
 };
 
 const documentChunker = (text: string): string[] => {
-  // Improved Markdown Header Splitter
   const parts = text.split(/(?=^#{1,6}\s)/m);
   return parts.filter(p => p.trim().length > 0);
 };
@@ -188,8 +190,8 @@ const documentChunker = (text: string): string[] => {
 const slidingWindowChunker = (text: string, windowSize: number, step: number): string[] => {
     const words = text.split(/\s+/);
     const chunks: string[] = [];
-    const wSize = Math.floor(windowSize / 5); 
     const wStep = Math.floor(step / 5) || 1;
+    const wSize = Math.floor(windowSize / 5); 
 
     for (let i = 0; i < words.length; i += wStep) {
         const slice = words.slice(i, i + wSize).join(' ');
@@ -209,46 +211,30 @@ const contentAwareChunker = (text: string): string[] => {
 export const processText = async (
   text: string, 
   options: ChunkingOptions
-): Promise<Chunk[]> => {
+): Promise<{ chunks: Chunk[], stats: any }> => {
   const start = performance.now();
   let rawChunks: string[] = [];
-
+  
+  // --- 1. Chunk Generation ---
   try {
     if ([StrategyType.Semantic, StrategyType.Linguistic, StrategyType.LLM].includes(options.strategy)) {
-      rawChunks = await chunkWithGemini(text, options.strategy);
+      rawChunks = await chunkWithGemini(text, options.strategy, options.model, options.customPrompt);
     } else {
+      // Deterministic Strategies
       switch (options.strategy) {
-        case StrategyType.FixedSize:
-          rawChunks = fixedSizeChunker(text, options.chunkSize, options.overlap);
-          break;
-        case StrategyType.Sentence:
-          rawChunks = sentenceChunker(text, options.chunkSize);
-          break;
-        case StrategyType.Paragraph:
-          rawChunks = paragraphChunker(text);
-          break;
+        case StrategyType.FixedSize: rawChunks = fixedSizeChunker(text, options.chunkSize, options.overlap); break;
+        case StrategyType.Sentence: rawChunks = sentenceChunker(text, options.chunkSize); break;
+        case StrategyType.Paragraph: rawChunks = paragraphChunker(text); break;
         case StrategyType.Recursive:
           const seps = options.separators?.length ? options.separators : ["\n\n", "\n", " ", ""];
           rawChunks = recursiveChunker(text, options.chunkSize, options.overlap, seps);
           break;
-        case StrategyType.Document:
-          rawChunks = documentChunker(text);
-          break;
-        case StrategyType.Code:
-          rawChunks = codeChunker(text, options.chunkSize);
-          break;
-        case StrategyType.Regex:
-          rawChunks = regexChunker(text, options.regexPattern || "\n\n");
-          break;
-        case StrategyType.Token:
-          rawChunks = fixedSizeChunker(text, options.chunkSize * 4, options.overlap * 4);
-          break;
-        case StrategyType.SlidingWindow:
-          rawChunks = slidingWindowChunker(text, options.chunkSize, options.overlap);
-          break;
-        case StrategyType.ContentAware:
-            rawChunks = contentAwareChunker(text);
-            break;
+        case StrategyType.Document: rawChunks = documentChunker(text); break;
+        case StrategyType.Code: rawChunks = codeChunker(text, options.chunkSize); break;
+        case StrategyType.Regex: rawChunks = regexChunker(text, options.regexPattern || "\n\n"); break;
+        case StrategyType.Token: rawChunks = fixedSizeChunker(text, options.chunkSize * 4, options.overlap * 4); break;
+        case StrategyType.SlidingWindow: rawChunks = slidingWindowChunker(text, options.chunkSize, options.overlap); break;
+        case StrategyType.ContentAware: rawChunks = contentAwareChunker(text); break;
         case StrategyType.Hybrid:
             const pChunks = paragraphChunker(text);
             let buf = "";
@@ -262,12 +248,10 @@ export const processText = async (
             });
             if(buf) rawChunks.push(buf.trim());
             break;
-        default:
-          rawChunks = [text];
+        default: rawChunks = [text];
       }
     }
 
-    // Apply Min Chunk Size Merging if applicable
     if (options.minChunkSize && options.minChunkSize > 0) {
       rawChunks = mergeSmallChunks(rawChunks, options.minChunkSize);
     }
@@ -277,13 +261,41 @@ export const processText = async (
     rawChunks = [text];
   }
 
+  // --- 2. Base Chunk Object Creation ---
+  let chunks: Chunk[] = rawChunks.map((content, idx) => ({
+    id: `chunk-${idx}-${Date.now()}`,
+    content,
+    charCount: content.length,
+    tokenCount: Math.ceil(content.split(/\s+/).length * 1.3),
+    keywords: extractKeywords(content)
+  }));
+
+  // --- 3. AI Enrichment (Parallel) ---
+  const enrichmentEnabled = options.enrichment && (options.enrichment.summarize || options.enrichment.qa || options.enrichment.label || options.enrichment.hallucination);
+  
+  if (enrichmentEnabled) {
+    // Limit to first 10 chunks to avoid massive API usage in demo, or all if small doc
+    const limit = 20;
+    const toEnrich = chunks.slice(0, limit);
+    const enriched = await Promise.all(
+        toEnrich.map(c => enrichChunk(c, options.model, options.enrichment!))
+    );
+    // Merge back
+    chunks = [...enriched, ...chunks.slice(limit)];
+  }
+
   const end = performance.now();
   
-  // Calculate distribution
+  // --- 4. Stats Calculation ---
+  const totalSize = chunks.reduce((acc, c) => acc + c.charCount, 0);
+  const sizes = chunks.map(c => c.charCount);
+  const totalTokens = chunks.reduce((acc, c) => acc + c.tokenCount, 0);
+
+  // Distribution
   const sizeMap = new Map<string, number>();
   const rangeStep = 100;
-  rawChunks.forEach(c => {
-    const range = Math.floor(c.length / rangeStep) * rangeStep;
+  chunks.forEach(c => {
+    const range = Math.floor(c.charCount / rangeStep) * rangeStep;
     const key = `${range}-${range + rangeStep}`;
     sizeMap.set(key, (sizeMap.get(key) || 0) + 1);
   });
@@ -292,11 +304,23 @@ export const processText = async (
     .map(([range, count]) => ({ range, count }))
     .sort((a, b) => parseInt(a.range) - parseInt(b.range));
 
-  return rawChunks.map((content, idx) => ({
-    id: `chunk-${idx}-${Date.now()}`,
-    content,
-    charCount: content.length,
-    tokenCount: Math.ceil(content.split(/\s+/).length * 1.3),
-    keywords: extractKeywords(content)
-  }));
+  // Cost Estimation
+  const pricing = MODEL_PRICING[options.model];
+  // Approx: Input was total text tokens + enrichment instructions. Output was chunked text + enriched text.
+  // This is a rough heuristic for the estimator.
+  const inputTokens = Math.ceil(text.length / 4) + (enrichmentEnabled ? chunks.length * 50 : 0);
+  const outputTokens = totalTokens + (enrichmentEnabled ? chunks.length * 100 : 0);
+  const estimatedCost = (inputTokens / 1_000_000 * pricing.input) + (outputTokens / 1_000_000 * pricing.output);
+
+  const stats = {
+    totalChunks: chunks.length,
+    avgSize: chunks.length ? totalSize / chunks.length : 0,
+    minSize: Math.min(...sizes),
+    maxSize: Math.max(...sizes),
+    processingTimeMs: end - start,
+    tokenDistribution,
+    estimatedCost
+  };
+
+  return { chunks, stats };
 };

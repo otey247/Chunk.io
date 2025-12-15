@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Chunk, ProcessingStats } from '../types';
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from 'recharts';
-import { Copy, Hash, Clock, FileText, Activity, AlignLeft, Tag } from 'lucide-react';
+import { Copy, Hash, Clock, FileText, Activity, AlignLeft, Tag, HelpCircle, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface VisualizerProps {
   chunks: Chunk[];
@@ -81,7 +81,6 @@ export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading, 
         
         {/* Charts */}
         <div className="flex gap-4 h-32 w-full xl:w-1/2">
-            {/* Size Distribution */}
             <div className="flex-1 bg-slate-900/50 rounded-lg p-2 border border-white/5 relative">
                 <p className="text-[10px] uppercase font-bold text-slate-500 absolute top-2 left-2 z-10">Size Dist.</p>
                 <ResponsiveContainer width="100%" height="100%">
@@ -95,7 +94,6 @@ export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading, 
                     </BarChart>
                 </ResponsiveContainer>
             </div>
-            {/* Histogram */}
             <div className="flex-1 bg-slate-900/50 rounded-lg p-2 border border-white/5 relative hidden sm:block">
                  <p className="text-[10px] uppercase font-bold text-slate-500 absolute top-2 left-2 z-10">Histogram</p>
                  <ResponsiveContainer width="100%" height="100%">
@@ -165,7 +163,14 @@ export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading, 
                             <span className="text-[10px] font-mono text-electric-indigo bg-electric-indigo/10 px-2 py-0.5 rounded">
                             #{idx + 1}
                             </span>
-                            {chunk.keywords && chunk.keywords.slice(0, 2).map(k => (
+                            {/* Tags from AI Labeling */}
+                            {chunk.labels && chunk.labels.map(k => (
+                                <span key={k} className="text-[9px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <Tag className="w-2 h-2" /> {k}
+                                </span>
+                            ))}
+                            {/* Legacy keywords if AI labels exist, maybe hide or show fewer */}
+                            {!chunk.labels && chunk.keywords && chunk.keywords.slice(0, 2).map(k => (
                                 <span key={k} className="text-[9px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <Tag className="w-2 h-2" /> {k}
                                 </span>
@@ -176,9 +181,47 @@ export const Visualizer: React.FC<VisualizerProps> = ({ chunks, stats, loading, 
                         </span>
                     </div>
                     
+                    {/* Hallucination Score Badge */}
+                    {chunk.hallucinationScore !== undefined && (
+                        <div className={`mb-3 flex items-start gap-2 text-[10px] p-2 rounded ${
+                            chunk.hallucinationScore > 7 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
+                        }`}>
+                            {chunk.hallucinationScore > 7 ? <CheckCircle className="w-3 h-3 mt-0.5"/> : <AlertTriangle className="w-3 h-3 mt-0.5"/>}
+                            <div>
+                                <span className="font-bold">Independence Score: {chunk.hallucinationScore}/10</span>
+                                <p className="opacity-80 mt-0.5 leading-tight">{chunk.hallucinationReason}</p>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="text-slate-300 text-sm font-light leading-relaxed whitespace-pre-wrap font-sans mb-4 grow font-mono text-[13px]">
                         {chunk.content}
                     </div>
+
+                    {/* AI Summary Section */}
+                    {chunk.summary && (
+                        <div className="mb-3 p-3 bg-white/5 rounded border-l-2 border-electric-indigo">
+                            <h4 className="text-[10px] uppercase text-slate-500 font-bold mb-1 flex items-center gap-1">
+                                <FileText className="w-3 h-3"/> Summary
+                            </h4>
+                            <p className="text-xs text-slate-300 italic">{chunk.summary}</p>
+                        </div>
+                    )}
+
+                    {/* QA Section */}
+                    {chunk.qaPairs && chunk.qaPairs.length > 0 && (
+                        <div className="mb-3 p-3 bg-white/5 rounded border-l-2 border-emerald-500">
+                             <h4 className="text-[10px] uppercase text-slate-500 font-bold mb-1 flex items-center gap-1">
+                                <HelpCircle className="w-3 h-3"/> Synthetic Q&A
+                            </h4>
+                            {chunk.qaPairs.map((qa, i) => (
+                                <div key={i} className="text-xs">
+                                    <p className="text-white font-medium mb-0.5">Q: {qa.question}</p>
+                                    <p className="text-slate-400">A: {qa.answer}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     <div className="pt-3 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <span className="text-[10px] text-slate-600">Token est: {chunk.tokenCount}</span>

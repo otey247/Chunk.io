@@ -16,6 +16,12 @@ export enum StrategyType {
   Regex = 'Regex Splitter',
 }
 
+export enum GeminiModel {
+  Flash = 'gemini-2.5-flash',
+  Pro = 'gemini-3-pro-preview',
+  Lite = 'gemini-flash-lite-latest',
+}
+
 export interface StrategyDefinition {
   id: string;
   name: StrategyType;
@@ -24,6 +30,11 @@ export interface StrategyDefinition {
   worstFor: string[];
   complexity: 'Low' | 'Medium' | 'High';
   requiresAI: boolean;
+}
+
+export interface QAPair {
+  question: string;
+  answer: string;
 }
 
 export interface Chunk {
@@ -35,6 +46,13 @@ export interface Chunk {
   start?: number;
   end?: number;
   keywords?: string[];
+  
+  // Enrichment Data
+  summary?: string;
+  qaPairs?: QAPair[];
+  labels?: string[];
+  hallucinationScore?: number; // 0-10 (10 = stands alone perfectly)
+  hallucinationReason?: string;
 }
 
 export interface ProcessingStats {
@@ -44,4 +62,5 @@ export interface ProcessingStats {
   maxSize: number;
   processingTimeMs: number;
   tokenDistribution: { range: string; count: number }[];
+  estimatedCost: number;
 }

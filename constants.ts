@@ -1,4 +1,10 @@
-import { StrategyDefinition, StrategyType } from './types';
+import { StrategyDefinition, StrategyType, GeminiModel } from './types';
+
+export const MODEL_PRICING = {
+  [GeminiModel.Flash]: { input: 0.075, output: 0.30 }, // Per 1M tokens (Approx)
+  [GeminiModel.Lite]: { input: 0.075, output: 0.30 }, // Same as Flash for now
+  [GeminiModel.Pro]: { input: 3.50, output: 10.50 },   // Per 1M tokens
+};
 
 export const STRATEGIES: StrategyDefinition[] = [
   {

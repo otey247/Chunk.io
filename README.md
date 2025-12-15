@@ -12,10 +12,9 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 -   **Real-time Visualization**: Histograms, Heatmaps, and Minimaps for deep analysis.
 -   **Advanced Processing**: Intl.Segmenter for precise sentence splitting.
 -   **Gemini AI Integration**: Leverages Google's Gemini 2.5 Flash for semantic, linguistic, and intelligent segmentation.
--   **Token Estimation**: Provides real-time estimates of token usage.
+-   **AI Enrichment**: Auto-summarize, generate Q&A, and detect hallucinations in chunks.
+-   **Token Estimation & Costing**: Provides real-time estimates of token usage and API costs.
 -   **Responsive Design**: A fluid, glassmorphism-inspired UI.
--   **Performance Metrics**: Tracks processing time, chunk counts, and average sizes.
-
 
 ---
 
@@ -65,25 +64,6 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 
 ---
 
-## ☁️ Cloud Deployment
-
-### Vercel (Recommended)
-
-1.  Install the Vercel CLI: `npm i -g vercel`
-2.  Run `vercel` in the project root.
-3.  Set your environment variables in the Vercel dashboard:
-    -   Key: `API_KEY` (or `VITE_GOOGLE_API_KEY` depending on your build config)
-    -   Value: `your_gemini_key`
-4.  Deploy!
-
-### Netlify
-
-1.  Drag and drop your `dist` folder to Netlify Drop, or connect via Git.
-2.  Go to **Site Settings > Build & Deploy > Environment**.
-3.  Add your `API_KEY`.
-
----
-
 ## ✅ Feature Roadmap & Todo List
 
 ### 🧠 Core Strategy Engine
@@ -111,13 +91,13 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 - [x] **Mini-map**: High-level overview of the document segmentation.
 
 ### 🤖 AI & LLM Integration
-- [ ] **Prompt Playground**: Customize the system prompt for LLM strategies.
-- [ ] **Model Switcher**: Toggle between Gemini Pro, Flash, and Ultra.
-- [ ] **Cost Estimator**: Calculate embedding cost for the generated chunks.
-- [ ] **Summarization**: Auto-generate a summary for each chunk.
-- [ ] **Question Generation**: AI generates synthetic QA pairs per chunk (for RAG eval).
-- [ ] **Labeling**: Auto-tag chunks with categories/topics.
-- [ ] **Hallucination Check**: Analyze if a chunk stands alone factually.
+- [x] **Prompt Playground**: Customize the system prompt for LLM strategies.
+- [x] **Model Switcher**: Toggle between Gemini Pro, Flash, and Ultra.
+- [x] **Cost Estimator**: Calculate embedding cost for the generated chunks.
+- [x] **Summarization**: Auto-generate a summary for each chunk.
+- [x] **Question Generation**: AI generates synthetic QA pairs per chunk (for RAG eval).
+- [x] **Labeling**: Auto-tag chunks with categories/topics.
+- [x] **Hallucination Check**: Analyze if a chunk stands alone factually.
 
 ### 📥 Data Ingestion (Input)
 - [ ] **PDF Parsing**: Drag & drop PDF support with OCR.
@@ -202,6 +182,7 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 - [ ] **Watermarking**: Invisible watermarking of chunks.
 - [ ] **Compliance export**: GDPR data export.
 - [ ] **Vulnerability Scanning**: Automated dependabot integration.
+
 
 ---
 
