@@ -87,7 +87,7 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 - [ ] **3D Embedding Space**: Project chunks into 3D space using PCA/t-SNE.
 - [x] **Keyword Cloud** per chunk.
 - [ ] **Dependency Parsing Tree** visualization for Linguistic strategy.
-- [ ] **Diff View**: Compare two strategies side-by-side.
+- [x] **Diff View**: Compare two strategies side-by-side.
 - [ ] **"Lost Context" Highlighter**: Highlight words cut off at boundaries.
 - [x] **Scroll Sync**: Sync source text scroll with chunk visualizer (Click-to-scroll implemented).
 - [x] **Mini-map**: High-level overview of the document segmentation.
@@ -118,36 +118,36 @@ Built with a "Swiss-International" aesthetic, the interface prioritizes clarity,
 - [ ] **Vector DB Sync**: Direct upload to Pinecone.
 - [ ] **Weaviate Integration**: Push chunks to Weaviate.
 - [ ] **ChromaDB Export**: Download a local Chroma collection.
-- [ ] **LangChain Loader Export**: Export code snippet to reproduce config in Python/JS.
-- [ ] **JSON/CSV Download**: Standard data exports.
-- [ ] **Markdown Export**: Reconstructed markdown with chunk delimiters.
+- [x] **LangChain Loader Export**: Export code snippet to reproduce config in Python/JS.
+- [x] **JSON/CSV Download**: Standard data exports.
+- [x] **Markdown Export**: Reconstructed markdown with chunk delimiters.
 - [ ] **API Endpoint**: Expose current logic as a serverless function.
 - [ ] **Embed Code**: "Copy Embed" to put a visualizer on another site.
 - [ ] **Shareable Links**: Generate a unique URL for the current workspace state.
 - [ ] **PDF Report**: Generate a PDF report of the chunking strategy analysis.
 
 ### 🧪 RAG Simulation (The "Lab")
-- [ ] **Retrieval Test**: Type a query and see which chunks would rank highest (using cosine sim).
-- [ ] **Relevance Scoring**: Manually rate chunk relevance to a query.
-- [ ] **"Needle in a Haystack"**: Visual test for long-context retrieval.
-- [ ] **Embedding Preview**: Show the vector array (first 10 dims).
-- [ ] **Metadata Injection**: Test adding metadata (Title, Date) to chunks before embedding.
-- [ ] **Context Window Simulator**: Visualize how many chunks fit in GPT-4 vs Claude 3.
-- [ ] **Reranker Sim**: Simulate effect of a Cross-Encoder reranker.
-- [ ] **Hybrid Search Sim**: Weight keywords vs. semantic vectors.
-- [ ] **Parent-Child Indexing**: Visualize parent docs vs child chunks.
-- [ ] **Hypothetical Document Embeddings (HyDE)** generation test.
+- [x] **Retrieval Test**: Type a query and see which chunks would rank highest (using cosine sim).
+- [x] **Relevance Scoring**: Manually rate chunk relevance to a query.
+- [x] **"Needle in a Haystack"**: Visual test for long-context retrieval.
+- [x] **Embedding Preview**: Show the vector array (first 10 dims).
+- [x] **Metadata Injection**: Test adding metadata (Title, Date) to chunks before embedding.
+- [x] **Context Window Simulator**: Visualize how many chunks fit in GPT-4 vs Claude 3.
+- [x] **Reranker Sim**: Simulate effect of a Cross-Encoder reranker.
+- [x] **Hybrid Search Sim**: Weight keywords vs. semantic vectors.
+- [x] **Parent-Child Indexing**: Visualize parent docs vs child chunks.
+- [x] **Hypothetical Document Embeddings (HyDE)** generation test.
 
 ### 🎨 User Interface & Experience
-- [ ] **Dark/Light Mode**: Full theme toggle.
+- [x] **Dark/Light Mode**: Full theme toggle.
 - [ ] **Focus Mode**: Collapse sidebar and headers.
 - [ ] **Keyboard Shortcuts**: `Cmd+Enter` to run, `Cmd+K` for command palette.
-- [ ] **Mobile Optimization**: Better touch targets and stacked views.
+- [x] **Mobile Optimization**: Better touch targets and stacked views.
 - [ ] **Font Size Control**: Accessibility scaling.
 - [ ] **Custom Fonts**: Upload user fonts.
-- [ ] **Layout Config**: Grid vs List vs Masonry view for chunks.
+- [x] **Layout Config**: Grid vs List vs Masonry view for chunks.
 - [ ] **Toast Notifications**: Better error/success messaging.
-- [ ] **Onboarding Tour**: Guided walkthrough for new users.
+- [x] **Onboarding Tour**: Guided walkthrough for new users.
 - [ ] **Settings Persistance**: Save preferences to LocalStorage.
 
 ### ⚡ Performance & Architecture

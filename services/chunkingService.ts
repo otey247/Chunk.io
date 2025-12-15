@@ -1,3 +1,4 @@
+
 import { Chunk, StrategyType, GeminiModel } from "../types";
 import { chunkWithGemini, enrichChunk } from "./geminiService";
 import { MODEL_PRICING } from "../constants";
@@ -10,6 +11,10 @@ interface ChunkingOptions {
   regexPattern?: string;
   separators?: string[];
   
+  // Parent-Child
+  enableParentChild?: boolean;
+  parentChunkSize?: number;
+
   // AI Config
   model: GeminiModel;
   customPrompt?: string;
@@ -199,11 +204,54 @@ const slidingWindowChunker = (text: string, windowSize: number, step: number): s
         if(i + wSize >= words.length) break;
     }
     return chunks;
-}
+};
 
 const contentAwareChunker = (text: string): string[] => {
     const parts = text.split(/(```[\s\S]*?```)/g);
     return parts.filter(p => p.trim().length > 0);
+};
+
+const runStrategy = async (text: string, options: ChunkingOptions, isParent = false): Promise<string[]> => {
+    const size = isParent ? (options.parentChunkSize || 1000) : options.chunkSize;
+    // For parents, typically we don't want AI strategies unless explicitly asked, to save time. 
+    // We'll fallback to recursive for parents if the main strategy is AI based to avoid double AI cost.
+    const effectiveStrategy = (isParent && [StrategyType.Semantic, StrategyType.Linguistic, StrategyType.LLM].includes(options.strategy)) 
+        ? StrategyType.Recursive 
+        : options.strategy;
+
+    if ([StrategyType.Semantic, StrategyType.Linguistic, StrategyType.LLM].includes(effectiveStrategy)) {
+        return await chunkWithGemini(text, effectiveStrategy, options.model, options.customPrompt);
+    } else {
+        switch (effectiveStrategy) {
+            case StrategyType.FixedSize: return fixedSizeChunker(text, size, options.overlap);
+            case StrategyType.Sentence: return sentenceChunker(text, size);
+            case StrategyType.Paragraph: return paragraphChunker(text);
+            case StrategyType.Recursive:
+                const seps = options.separators?.length ? options.separators : ["\n\n", "\n", " ", ""];
+                return recursiveChunker(text, size, options.overlap, seps);
+            case StrategyType.Document: return documentChunker(text);
+            case StrategyType.Code: return codeChunker(text, size);
+            case StrategyType.Regex: return regexChunker(text, options.regexPattern || "\n\n");
+            case StrategyType.Token: return fixedSizeChunker(text, size * 4, options.overlap * 4);
+            case StrategyType.SlidingWindow: return slidingWindowChunker(text, size, options.overlap);
+            case StrategyType.ContentAware: return contentAwareChunker(text);
+            case StrategyType.Hybrid:
+                const pChunks = paragraphChunker(text);
+                let buf = "";
+                const result: string[] = [];
+                pChunks.forEach(p => {
+                    if((buf.length + p.length) < size) {
+                        buf += "\n\n" + p;
+                    } else {
+                        if(buf) result.push(buf.trim());
+                        buf = p;
+                    }
+                });
+                if(buf) result.push(buf.trim());
+                return result;
+            default: return [text];
+        }
+    }
 }
 
 // --- Main Process ---
@@ -213,88 +261,108 @@ export const processText = async (
   options: ChunkingOptions
 ): Promise<{ chunks: Chunk[], stats: any }> => {
   const start = performance.now();
-  let rawChunks: string[] = [];
-  
-  // --- 1. Chunk Generation ---
-  try {
-    if ([StrategyType.Semantic, StrategyType.Linguistic, StrategyType.LLM].includes(options.strategy)) {
-      rawChunks = await chunkWithGemini(text, options.strategy, options.model, options.customPrompt);
-    } else {
-      // Deterministic Strategies
-      switch (options.strategy) {
-        case StrategyType.FixedSize: rawChunks = fixedSizeChunker(text, options.chunkSize, options.overlap); break;
-        case StrategyType.Sentence: rawChunks = sentenceChunker(text, options.chunkSize); break;
-        case StrategyType.Paragraph: rawChunks = paragraphChunker(text); break;
-        case StrategyType.Recursive:
-          const seps = options.separators?.length ? options.separators : ["\n\n", "\n", " ", ""];
-          rawChunks = recursiveChunker(text, options.chunkSize, options.overlap, seps);
-          break;
-        case StrategyType.Document: rawChunks = documentChunker(text); break;
-        case StrategyType.Code: rawChunks = codeChunker(text, options.chunkSize); break;
-        case StrategyType.Regex: rawChunks = regexChunker(text, options.regexPattern || "\n\n"); break;
-        case StrategyType.Token: rawChunks = fixedSizeChunker(text, options.chunkSize * 4, options.overlap * 4); break;
-        case StrategyType.SlidingWindow: rawChunks = slidingWindowChunker(text, options.chunkSize, options.overlap); break;
-        case StrategyType.ContentAware: rawChunks = contentAwareChunker(text); break;
-        case StrategyType.Hybrid:
-            const pChunks = paragraphChunker(text);
-            let buf = "";
-            pChunks.forEach(p => {
-                if((buf.length + p.length) < options.chunkSize) {
-                    buf += "\n\n" + p;
-                } else {
-                    if(buf) rawChunks.push(buf.trim());
-                    buf = p;
-                }
-            });
-            if(buf) rawChunks.push(buf.trim());
-            break;
-        default: rawChunks = [text];
-      }
-    }
+  let allChunks: Chunk[] = [];
 
-    if (options.minChunkSize && options.minChunkSize > 0) {
-      rawChunks = mergeSmallChunks(rawChunks, options.minChunkSize);
-    }
+  try {
+      if (options.enableParentChild) {
+          // 1. Generate Parents
+          const parentTexts = await runStrategy(text, options, true);
+          
+          // 2. Generate Children for each Parent
+          for (let i = 0; i < parentTexts.length; i++) {
+              const parentContent = parentTexts[i];
+              const parentId = `parent-${i}-${Date.now()}`;
+              
+              // Add Parent Chunk
+              allChunks.push({
+                  id: parentId,
+                  content: parentContent,
+                  charCount: parentContent.length,
+                  tokenCount: Math.ceil(parentContent.split(/\s+/).length * 1.3),
+                  keywords: extractKeywords(parentContent),
+                  type: 'parent'
+              });
+
+              // Generate Children
+              const childTexts = await runStrategy(parentContent, options, false);
+              const children: Chunk[] = childTexts.map((content, idx) => ({
+                id: `child-${i}-${idx}-${Date.now()}`,
+                content,
+                charCount: content.length,
+                tokenCount: Math.ceil(content.split(/\s+/).length * 1.3),
+                keywords: extractKeywords(content),
+                type: 'child',
+                parentId: parentId
+              }));
+              allChunks.push(...children);
+          }
+
+      } else {
+          // Standard Process
+          const rawChunks = await runStrategy(text, options, false);
+          
+          // Post-process merging
+          let mergedChunks = rawChunks;
+          if (options.minChunkSize && options.minChunkSize > 0) {
+            mergedChunks = mergeSmallChunks(rawChunks, options.minChunkSize);
+          }
+
+          allChunks = mergedChunks.map((content, idx) => ({
+            id: `chunk-${idx}-${Date.now()}`,
+            content,
+            charCount: content.length,
+            tokenCount: Math.ceil(content.split(/\s+/).length * 1.3),
+            keywords: extractKeywords(content)
+          }));
+      }
 
   } catch (e) {
     console.error("Chunking failed, returning original", e);
-    rawChunks = [text];
+    allChunks = [{
+        id: `err-${Date.now()}`,
+        content: text,
+        charCount: text.length,
+        tokenCount: Math.ceil(text.split(/\s+/).length * 1.3),
+        keywords: []
+    }];
   }
 
-  // --- 2. Base Chunk Object Creation ---
-  let chunks: Chunk[] = rawChunks.map((content, idx) => ({
-    id: `chunk-${idx}-${Date.now()}`,
-    content,
-    charCount: content.length,
-    tokenCount: Math.ceil(content.split(/\s+/).length * 1.3),
-    keywords: extractKeywords(content)
-  }));
-
-  // --- 3. AI Enrichment (Parallel) ---
+  // --- AI Enrichment (Parallel) ---
   const enrichmentEnabled = options.enrichment && (options.enrichment.summarize || options.enrichment.qa || options.enrichment.label || options.enrichment.hallucination);
   
+  // Only enrich children or flat chunks, skip parents to save cost/time
+  const chunksToEnrich = allChunks.filter(c => c.type !== 'parent');
+
   if (enrichmentEnabled) {
-    // Limit to first 10 chunks to avoid massive API usage in demo, or all if small doc
-    const limit = 20;
-    const toEnrich = chunks.slice(0, limit);
-    const enriched = await Promise.all(
+    const limit = 10;
+    const toEnrich = chunksToEnrich.slice(0, limit);
+    
+    // We need to map back to the main array.
+    const enrichedResults = await Promise.all(
         toEnrich.map(c => enrichChunk(c, options.model, options.enrichment!))
     );
-    // Merge back
-    chunks = [...enriched, ...chunks.slice(limit)];
+
+    // Replace in main array
+    allChunks = allChunks.map(c => {
+        const found = enrichedResults.find(e => e.id === c.id);
+        return found || c;
+    });
   }
 
   const end = performance.now();
   
-  // --- 4. Stats Calculation ---
-  const totalSize = chunks.reduce((acc, c) => acc + c.charCount, 0);
-  const sizes = chunks.map(c => c.charCount);
-  const totalTokens = chunks.reduce((acc, c) => acc + c.tokenCount, 0);
+  // --- Stats Calculation ---
+  // Stats should ideally focus on the "retrievable" units (Children or Standard chunks)
+  const retrievalChunks = allChunks.filter(c => c.type !== 'parent');
+  
+  const totalSize = retrievalChunks.reduce((acc, c) => acc + c.charCount, 0);
+  const sizes = retrievalChunks.map(c => c.charCount);
+  const totalTokens = retrievalChunks.reduce((acc, c) => acc + c.tokenCount, 0);
 
   // Distribution
   const sizeMap = new Map<string, number>();
   const rangeStep = 100;
-  chunks.forEach(c => {
+  retrievalChunks.forEach(c => {
     const range = Math.floor(c.charCount / rangeStep) * rangeStep;
     const key = `${range}-${range + rangeStep}`;
     sizeMap.set(key, (sizeMap.get(key) || 0) + 1);
@@ -306,21 +374,19 @@ export const processText = async (
 
   // Cost Estimation
   const pricing = MODEL_PRICING[options.model];
-  // Approx: Input was total text tokens + enrichment instructions. Output was chunked text + enriched text.
-  // This is a rough heuristic for the estimator.
-  const inputTokens = Math.ceil(text.length / 4) + (enrichmentEnabled ? chunks.length * 50 : 0);
-  const outputTokens = totalTokens + (enrichmentEnabled ? chunks.length * 100 : 0);
+  const inputTokens = Math.ceil(text.length / 4) + (enrichmentEnabled ? retrievalChunks.length * 50 : 0);
+  const outputTokens = totalTokens + (enrichmentEnabled ? retrievalChunks.length * 100 : 0);
   const estimatedCost = (inputTokens / 1_000_000 * pricing.input) + (outputTokens / 1_000_000 * pricing.output);
 
   const stats = {
-    totalChunks: chunks.length,
-    avgSize: chunks.length ? totalSize / chunks.length : 0,
-    minSize: Math.min(...sizes),
-    maxSize: Math.max(...sizes),
+    totalChunks: retrievalChunks.length,
+    avgSize: retrievalChunks.length ? totalSize / retrievalChunks.length : 0,
+    minSize: Math.min(...sizes) || 0,
+    maxSize: Math.max(...sizes) || 0,
     processingTimeMs: end - start,
     tokenDistribution,
     estimatedCost
   };
 
-  return { chunks, stats };
+  return { chunks: allChunks, stats };
 };

@@ -3,13 +3,15 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Visualizer } from './components/Visualizer';
 import { RagLab } from './components/RagLab';
+import { ExportMenu } from './components/ExportMenu';
+import { OnboardingTour } from './components/OnboardingTour';
 import { StrategyType, Chunk, ProcessingStats, GeminiModel } from './types';
 import { INITIAL_TEXT, STRATEGIES } from './constants';
 import { processText } from './services/chunkingService';
 import { parseFile, transcribeAudio } from './services/documentLoader';
 import { getEmbeddings, generateHyDE } from './services/geminiService';
 import { rankChunks } from './services/ragService';
-import { Edit3, Play, FileUp, Link, Mic, Sun, Moon, X, Youtube, Type, Beaker, LayoutGrid } from 'lucide-react';
+import { Edit3, Play, FileUp, Link, Mic, Sun, Moon, X, Youtube, Type, Beaker, LayoutGrid, Menu } from 'lucide-react';
 
 const App: React.FC = () => {
   const [text, setText] = useState<string>(INITIAL_TEXT);
@@ -18,6 +20,9 @@ const App: React.FC = () => {
   
   // App Mode
   const [mode, setMode] = useState<'architect' | 'lab'>('architect');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Mobile Drawer
+  const [showTour, setShowTour] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   // Input Modes
   const [inputMode, setInputMode] = useState<'text' | 'file' | 'url' | 'audio'>('text');
@@ -30,6 +35,8 @@ const App: React.FC = () => {
   const [overlap, setOverlap] = useState<number>(50);
   const [minChunkSize, setMinChunkSize] = useState<number>(20);
   const [regexPattern, setRegexPattern] = useState<string>("\\n\\n");
+  const [enableParentChild, setEnableParentChild] = useState(false);
+  const [parentChunkSize, setParentChunkSize] = useState(1500);
 
   // AI Settings
   const [selectedModel, setSelectedModel] = useState<GeminiModel>(GeminiModel.Flash);
@@ -48,11 +55,24 @@ const App: React.FC = () => {
   const [useHyDE, setUseHyDE] = useState(false);
   const [useReranker, setUseReranker] = useState(false);
 
+  // Diff Mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [comparisonChunks, setComparisonChunks] = useState<Chunk[] | undefined>(undefined);
+
   const [loading, setLoading] = useState<boolean>(false);
   const [stats, setStats] = useState<ProcessingStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const audioRef = useRef<any>(null);
+
+  // Initialize
+  useEffect(() => {
+    // Check first visit for tour
+    if (!localStorage.getItem('chunk_io_visited')) {
+        setTimeout(() => setShowTour(true), 1000);
+        localStorage.setItem('chunk_io_visited', 'true');
+    }
+  }, []);
 
   // Toggle Dark Mode
   useEffect(() => {
@@ -62,6 +82,17 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Handle Mobile Sidebar
+  useEffect(() => {
+      const handleResize = () => {
+          if (window.innerWidth < 768) setIsSidebarOpen(false);
+          else setIsSidebarOpen(true);
+      };
+      handleResize();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const runChunking = useCallback(async () => {
     setLoading(true);
@@ -77,7 +108,9 @@ const App: React.FC = () => {
         regexPattern,
         model: selectedModel,
         customPrompt,
-        enrichment
+        enrichment,
+        enableParentChild,
+        parentChunkSize
       });
 
       setChunks(generatedChunks);
@@ -89,7 +122,7 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [text, chunkSize, overlap, strategy, minChunkSize, regexPattern, selectedModel, customPrompt, enrichment]);
+  }, [text, chunkSize, overlap, strategy, minChunkSize, regexPattern, selectedModel, customPrompt, enrichment, enableParentChild, parentChunkSize]);
 
   // Debounce the runChunking for local strategies
   useEffect(() => {
@@ -109,19 +142,39 @@ const App: React.FC = () => {
       runChunking();
   }
 
+  const handleToggleCompare = () => {
+    if (!compareMode) {
+        // Start Comparison: Snapshot current as baseline
+        setComparisonChunks([...chunks]);
+        setCompareMode(true);
+    } else {
+        // Exit Comparison
+        setComparisonChunks(undefined);
+        setCompareMode(false);
+    }
+  }
+
   // --- RAG Functions ---
   
   const handleGenerateEmbeddings = async () => {
     if (chunks.length === 0) return;
     setLoading(true);
     try {
-      const texts = chunks.map(c => c.content);
+      // Filter out parents from embedding if parent-child is on? 
+      // Usually only children are embedded for retrieval.
+      const toEmbed = chunks.filter(c => c.type !== 'parent');
+      const texts = toEmbed.map(c => c.content);
       const embeddings = await getEmbeddings(texts);
       
-      const updatedChunks = chunks.map((c, i) => ({
-        ...c,
-        rag: { ...c.rag, embedding: embeddings[i] }
-      }));
+      const updatedChunks = chunks.map(c => {
+         if (c.type === 'parent') return c; // Skip parents
+         const index = toEmbed.findIndex(embedC => embedC.id === c.id);
+         if (index === -1) return c;
+         return {
+            ...c,
+            rag: { ...c.rag, embedding: embeddings[index] }
+         };
+      });
       
       setChunks(updatedChunks);
       setEmbeddingsGenerated(true);
@@ -149,9 +202,14 @@ const App: React.FC = () => {
       
       if (!queryEmbedding) throw new Error("Failed to embed query");
 
-      // Rank
-      const rankedChunks = rankChunks(chunks, queryEmbedding, ragQuery, ragAlpha, useReranker);
-      setChunks(rankedChunks);
+      // Rank (Only retrieval chunks, i.e., non-parents)
+      const retrievalChunks = chunks.filter(c => c.type !== 'parent');
+      const parents = chunks.filter(c => c.type === 'parent');
+      
+      const rankedChildren = rankChunks(retrievalChunks, queryEmbedding, ragQuery, ragAlpha, useReranker);
+      
+      // Combine back
+      setChunks([...parents, ...rankedChildren]);
       
     } catch (e) {
       setError("Retrieval failed.");
@@ -235,8 +293,25 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen bg-swiss-offwhite dark:bg-[#0f172a] text-swiss-charcoal dark:text-slate-200 overflow-hidden font-sans transition-colors duration-300">
+      
+      {/* Tour & Export Overlays */}
+      <OnboardingTour isOpen={showTour} onClose={() => setShowTour(false)} />
+      <ExportMenu 
+        isOpen={showExport} 
+        onClose={() => setShowExport(false)}
+        chunks={chunks}
+        strategy={strategy}
+        chunkSize={chunkSize}
+        overlap={overlap}
+      />
+
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && window.innerWidth < 768 && (
+          <div className="fixed inset-0 bg-black/50 z-20" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       {/* Left Sidebar */}
-      <div className="w-80 shrink-0 z-20 shadow-2xl">
+      <div className={`fixed md:relative inset-y-0 left-0 w-80 shrink-0 z-30 shadow-2xl transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <Sidebar 
           selectedStrategy={strategy} 
           onSelectStrategy={setStrategy}
@@ -255,26 +330,38 @@ const App: React.FC = () => {
           enrichment={enrichment}
           setEnrichment={setEnrichment}
           estimatedCost={stats?.estimatedCost || 0}
+          enableParentChild={enableParentChild}
+          setEnableParentChild={setEnableParentChild}
+          parentChunkSize={parentChunkSize}
+          setParentChunkSize={setParentChunkSize}
+          compareMode={compareMode}
+          toggleCompareMode={handleToggleCompare}
+          onOpenExport={() => setShowExport(true)}
         />
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row min-w-0">
+      <div className="flex-1 flex flex-col md:flex-row min-w-0 h-full relative">
         
         {/* Editor / Lab Panel (Left Half) */}
-        <div className="md:w-1/2 flex flex-col border-r border-black/5 dark:border-white/10 relative bg-white dark:bg-[#0f172a] transition-colors duration-300">
+        <div className={`md:w-1/2 flex flex-col border-r border-black/5 dark:border-white/10 relative bg-white dark:bg-[#0f172a] transition-colors duration-300 ${compareMode ? 'hidden md:flex' : ''}`}>
            
            {/* Top Bar: Mode Switcher & Tools */}
-           <div className="h-16 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-6 bg-white dark:bg-[#0f172a] z-20">
+           <div className="h-16 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-6 bg-white dark:bg-[#0f172a] z-20 shrink-0">
               
-              {/* Mode Toggle */}
-              <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-1 gap-1">
-                  <button onClick={() => setMode('architect')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition-all ${mode === 'architect' ? 'bg-white dark:bg-slate-700 shadow text-electric-indigo' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-                      <LayoutGrid className="w-4 h-4" /> Architect
+              <div className="flex items-center gap-2">
+                  <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden p-2 -ml-2 text-slate-500">
+                    <Menu className="w-5 h-5" />
                   </button>
-                  <button onClick={() => setMode('lab')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition-all ${mode === 'lab' ? 'bg-white dark:bg-slate-700 shadow text-electric-indigo' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-                      <Beaker className="w-4 h-4" /> RAG Lab
-                  </button>
+                  {/* Mode Toggle */}
+                  <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-1 gap-1">
+                      <button id="architect-mode" onClick={() => setMode('architect')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition-all ${mode === 'architect' ? 'bg-white dark:bg-slate-700 shadow text-electric-indigo' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+                          <LayoutGrid className="w-4 h-4" /> Architect
+                      </button>
+                      <button id="rag-mode-toggle" onClick={() => setMode('lab')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition-all ${mode === 'lab' ? 'bg-white dark:bg-slate-700 shadow text-electric-indigo' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+                          <Beaker className="w-4 h-4" /> RAG Lab
+                      </button>
+                  </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -288,6 +375,7 @@ const App: React.FC = () => {
                  {/* Run Button (Only in Architect Mode) */}
                  {mode === 'architect' && showManualRun && (
                     <button 
+                        id="run-btn"
                         onClick={handleRunAI}
                         disabled={loading}
                         className="bg-electric-indigo hover:bg-electric-accent text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -298,7 +386,7 @@ const App: React.FC = () => {
            </div>
            
            {/* Input Area (Architect) or RAG Lab (Lab) */}
-           <div className="flex-1 flex flex-col relative overflow-hidden">
+           <div className="flex-1 flex flex-col relative overflow-hidden" id="input-area">
               
               {mode === 'lab' ? (
                 <RagLab 
@@ -319,7 +407,7 @@ const App: React.FC = () => {
               ) : (
                 <>
                   {/* Tool Bar for Architect Mode */}
-                  <div className="px-6 py-3 border-b border-black/5 dark:border-white/5 flex gap-2 overflow-x-auto scrollbar-none">
+                  <div className="px-6 py-3 border-b border-black/5 dark:border-white/5 flex gap-2 overflow-x-auto scrollbar-none shrink-0">
                       <button onClick={() => setInputMode('text')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${inputMode === 'text' ? 'bg-electric-indigo/10 text-electric-indigo' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'}`}>
                           <Type className="w-3 h-3" /> Text
                       </button>
@@ -406,7 +494,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Visualization Panel (Right Half) */}
-        <div className="md:w-1/2 h-full relative">
+        <div className={`h-full relative ${compareMode ? 'w-full' : 'md:w-1/2'}`}>
             {error && (
                 <div className="absolute top-6 left-6 right-6 z-50 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-200 p-4 rounded-lg text-sm backdrop-blur-md shadow-lg">
                     {error}
@@ -420,6 +508,7 @@ const App: React.FC = () => {
               ragMode={mode === 'lab'} 
               onRateChunk={handleRateChunk}
               onInjectMetadata={handleInjectMetadata}
+              comparisonChunks={comparisonChunks}
            />
         </div>
       </div>

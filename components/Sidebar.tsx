@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Settings, Zap, Info, Box, Brain, DollarSign } from 'lucide-react';
+import { Settings, Zap, Info, Box, Brain, DollarSign, ArrowRightLeft, GitFork, Download } from 'lucide-react';
 import { STRATEGIES } from '../constants';
 import { StrategyType, GeminiModel } from '../types';
 
@@ -26,6 +27,16 @@ interface SidebarProps {
   };
   setEnrichment: (e: any) => void;
   estimatedCost: number;
+  // Parent Child
+  enableParentChild: boolean;
+  setEnableParentChild: (b: boolean) => void;
+  parentChunkSize: number;
+  setParentChunkSize: (n: number) => void;
+  // Comparison
+  compareMode: boolean;
+  toggleCompareMode: () => void;
+  // Export
+  onOpenExport: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -45,7 +56,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setCustomPrompt,
   enrichment,
   setEnrichment,
-  estimatedCost
+  estimatedCost,
+  enableParentChild,
+  setEnableParentChild,
+  parentChunkSize,
+  setParentChunkSize,
+  compareMode,
+  toggleCompareMode,
+  onOpenExport
 }) => {
   const currentStrategyInfo = STRATEGIES.find(s => s.name === selectedStrategy);
   const isAIStrategy = currentStrategyInfo?.requiresAI;
@@ -55,18 +73,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col border-r border-black/5 dark:border-white/10 bg-swiss-offwhite dark:bg-[#0f172a] text-sm overflow-y-auto transition-colors duration-300">
+    <div className="h-full flex flex-col border-r border-black/5 dark:border-white/10 bg-swiss-offwhite dark:bg-[#0f172a] text-sm overflow-y-auto transition-colors duration-300 scrollbar-thin">
       <div className="p-6 border-b border-black/5 dark:border-white/5">
         <h1 className="font-display font-bold text-2xl tracking-tight text-swiss-charcoal dark:text-white flex items-center gap-2">
           <Box className="w-6 h-6 text-electric-indigo" />
           Chunk.io
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-2 text-xs uppercase tracking-widest font-medium">RAG Architect</p>
+        <div className="flex justify-between items-center mt-2">
+           <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-widest font-medium">RAG Architect</p>
+           <button onClick={onOpenExport} className="text-slate-400 hover:text-electric-indigo transition-colors" title="Export">
+             <Download className="w-4 h-4" />
+           </button>
+        </div>
       </div>
 
       <div className="p-4 space-y-6">
+        
+        {/* Comparison Toggle */}
+        <button 
+          onClick={toggleCompareMode}
+          className={`w-full py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all ${
+            compareMode 
+            ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' 
+            : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800 hover:border-electric-indigo/50'
+          }`}
+        >
+          <ArrowRightLeft className="w-3 h-3" /> {compareMode ? 'Exit Diff View' : 'Compare Strategies'}
+        </button>
+
         {/* Strategy Selector */}
-        <div>
+        <div id="strategy-selector">
           <h2 className="text-slate-500 dark:text-slate-500 font-semibold mb-3 px-2 text-xs uppercase tracking-wider">Strategy</h2>
           <div className="space-y-1">
             {STRATEGIES.map((s) => (
@@ -85,6 +121,96 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Basic Configuration */}
+        <div id="param-controls">
+          <h2 className="text-slate-500 font-semibold mb-3 px-2 text-xs uppercase tracking-wider">Parameters</h2>
+          <div className="glass-panel rounded-xl p-4 space-y-5">
+            <div>
+              <div className="flex justify-between mb-2">
+                <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Target Size</label>
+                <span className="text-electric-indigo font-mono text-xs">{chunkSize}</span>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="4000"
+                step="50"
+                value={chunkSize}
+                onChange={(e) => setChunkSize(Number(e.target.value))}
+                className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-2">
+                <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Overlap</label>
+                <span className="text-electric-indigo font-mono text-xs">{overlap}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="500"
+                step="10"
+                value={overlap}
+                onChange={(e) => setOverlap(Number(e.target.value))}
+                className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
+              />
+            </div>
+
+            {selectedStrategy === StrategyType.Regex && (
+               <div>
+                  <label className="text-slate-600 dark:text-slate-300 font-medium text-xs mb-2 block">Regex Pattern</label>
+                  <input 
+                    type="text" 
+                    value={regexPattern}
+                    onChange={(e) => setRegexPattern(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs text-electric-indigo font-mono focus:border-electric-indigo outline-none transition-colors"
+                  />
+               </div>
+            )}
+            
+            {/* Parent-Child Indexing */}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                 <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                   <GitFork className="w-3 h-3" /> Parent-Child
+                 </span>
+                 <button
+                    onClick={() => setEnableParentChild(!enableParentChild)}
+                    className={`w-8 h-4 rounded-full transition-colors relative ${
+                      enableParentChild ? 'bg-electric-indigo' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                       enableParentChild ? 'left-4.5' : 'left-0.5'
+                    }`} />
+                  </button>
+              </div>
+              
+              {enableParentChild && (
+                  <div className="animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex justify-between mb-2">
+                        <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Parent Size</label>
+                        <span className="text-electric-indigo font-mono text-xs">{parentChunkSize}</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="500"
+                        max="8000"
+                        step="100"
+                        value={parentChunkSize}
+                        onChange={(e) => setParentChunkSize(Number(e.target.value))}
+                        className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-2 leading-tight">
+                        Create large "Parent" chunks for context, then split them into smaller chunks for retrieval.
+                    </p>
+                  </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -160,55 +286,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Basic Configuration */}
-        <div>
-          <h2 className="text-slate-500 font-semibold mb-3 px-2 text-xs uppercase tracking-wider">Parameters</h2>
-          <div className="glass-panel rounded-xl p-4 space-y-5">
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Target Size</label>
-                <span className="text-electric-indigo font-mono text-xs">{chunkSize}</span>
-              </div>
-              <input
-                type="range"
-                min="50"
-                max="4000"
-                step="50"
-                value={chunkSize}
-                onChange={(e) => setChunkSize(Number(e.target.value))}
-                className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Overlap</label>
-                <span className="text-electric-indigo font-mono text-xs">{overlap}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="500"
-                step="10"
-                value={overlap}
-                onChange={(e) => setOverlap(Number(e.target.value))}
-                className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
-              />
-            </div>
-
-            {selectedStrategy === StrategyType.Regex && (
-               <div>
-                  <label className="text-slate-600 dark:text-slate-300 font-medium text-xs mb-2 block">Regex Pattern</label>
-                  <input 
-                    type="text" 
-                    value={regexPattern}
-                    onChange={(e) => setRegexPattern(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs text-electric-indigo font-mono focus:border-electric-indigo outline-none transition-colors"
-                  />
-               </div>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );

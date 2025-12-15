@@ -58,6 +58,10 @@ export interface Chunk {
   end?: number;
   keywords?: string[];
   
+  // Parent-Child
+  type?: 'parent' | 'child';
+  parentId?: string;
+  
   // Enrichment Data
   summary?: string;
   qaPairs?: QAPair[];
