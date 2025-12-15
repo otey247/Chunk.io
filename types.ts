@@ -1,3 +1,4 @@
+
 export enum StrategyType {
   FixedSize = 'Fixed-Size Chunking',
   Recursive = 'Recursive Chunking',
@@ -20,6 +21,7 @@ export enum GeminiModel {
   Flash = 'gemini-2.5-flash',
   Pro = 'gemini-3-pro-preview',
   Lite = 'gemini-flash-lite-latest',
+  Embedding = 'text-embedding-004',
 }
 
 export interface StrategyDefinition {
@@ -35,6 +37,15 @@ export interface StrategyDefinition {
 export interface QAPair {
   question: string;
   answer: string;
+}
+
+export interface RagStats {
+  embedding?: number[];
+  cosineSimilarity?: number;
+  keywordScore?: number;
+  hybridScore?: number;
+  rank?: number;
+  isHyDEGenerated?: boolean;
 }
 
 export interface Chunk {
@@ -53,6 +64,10 @@ export interface Chunk {
   labels?: string[];
   hallucinationScore?: number; // 0-10 (10 = stands alone perfectly)
   hallucinationReason?: string;
+  
+  // RAG Lab Data
+  rag?: RagStats;
+  userRelevance?: number; // 1-5 user rating
 }
 
 export interface ProcessingStats {

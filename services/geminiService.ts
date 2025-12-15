@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StrategyType, GeminiModel, Chunk } from "../types";
 
@@ -126,4 +127,43 @@ export const enrichChunk = async (
   }
 
   return enrichedChunk;
+};
+
+export const getEmbeddings = async (texts: string[]): Promise<number[][]> => {
+  const client = getClient();
+  // Note: Standard API rate limits apply. In prod, batch these carefully.
+  // We'll process sequentially for safety in this demo, though parallel is faster.
+  const embeddings: number[][] = [];
+  
+  for (const text of texts) {
+    try {
+      const result = await client.models.embedContent({
+        model: 'text-embedding-004',
+        contents: text,
+      });
+      if (result.embeddings?.[0]?.values) {
+        embeddings.push(result.embeddings[0].values);
+      } else {
+        embeddings.push([]);
+      }
+    } catch (e) {
+      console.error("Embedding failed", e);
+      embeddings.push([]);
+    }
+  }
+  return embeddings;
+};
+
+export const generateHyDE = async (query: string): Promise<string> => {
+  const client = getClient();
+  try {
+    const response = await client.models.generateContent({
+      model: GeminiModel.Flash,
+      contents: `Generate a hypothetical relevant document passage that answers this question: "${query}". The passage should be concise and factual-sounding.`,
+    });
+    return response.text || query;
+  } catch (e) {
+    console.error("HyDE generation failed", e);
+    return query;
+  }
 };
