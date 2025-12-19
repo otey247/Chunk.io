@@ -30,13 +30,13 @@ const App: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
 
-  // Settings
-  const [chunkSize, setChunkSize] = useState<number>(500);
+  // Settings (in Tokens now)
+  const [chunkSize, setChunkSize] = useState<number>(512);
   const [overlap, setOverlap] = useState<number>(50);
-  const [minChunkSize, setMinChunkSize] = useState<number>(20);
+  const [minChunkSize, setMinChunkSize] = useState<number>(32);
   const [regexPattern, setRegexPattern] = useState<string>("\\n\\n");
   const [enableParentChild, setEnableParentChild] = useState(false);
-  const [parentChunkSize, setParentChunkSize] = useState(1500);
+  const [parentChunkSize, setParentChunkSize] = useState(1024);
 
   // AI Settings
   const [selectedModel, setSelectedModel] = useState<GeminiModel>(GeminiModel.Flash);
@@ -160,14 +160,12 @@ const App: React.FC = () => {
     if (chunks.length === 0) return;
     setLoading(true);
     try {
-      // Filter out parents from embedding if parent-child is on? 
-      // Usually only children are embedded for retrieval.
       const toEmbed = chunks.filter(c => c.type !== 'parent');
       const texts = toEmbed.map(c => c.content);
       const embeddings = await getEmbeddings(texts);
       
       const updatedChunks = chunks.map(c => {
-         if (c.type === 'parent') return c; // Skip parents
+         if (c.type === 'parent') return c;
          const index = toEmbed.findIndex(embedC => embedC.id === c.id);
          if (index === -1) return c;
          return {
@@ -191,24 +189,19 @@ const App: React.FC = () => {
     try {
       let finalQuery = ragQuery;
       
-      // HyDE Step
       if (useHyDE) {
         finalQuery = await generateHyDE(ragQuery);
-        console.log("HyDE Generated:", finalQuery);
       }
 
-      // Embed Query
       const [queryEmbedding] = await getEmbeddings([finalQuery]);
       
       if (!queryEmbedding) throw new Error("Failed to embed query");
 
-      // Rank (Only retrieval chunks, i.e., non-parents)
       const retrievalChunks = chunks.filter(c => c.type !== 'parent');
       const parents = chunks.filter(c => c.type === 'parent');
       
       const rankedChildren = rankChunks(retrievalChunks, queryEmbedding, ragQuery, ragAlpha, useReranker);
       
-      // Combine back
       setChunks([...parents, ...rankedChildren]);
       
     } catch (e) {
@@ -246,7 +239,6 @@ const App: React.FC = () => {
       setError(`Failed to parse file: ${err.message}`);
     } finally {
       setLoading(false);
-      // Reset input
       e.target.value = '';
     }
   };
@@ -263,7 +255,7 @@ const App: React.FC = () => {
       }
       
       setIsRecording(true);
-      setText(""); // Clear text on new recording
+      setText("");
       audioRef.current = transcriber;
       
       transcriber.start((transcript, isFinal) => {
@@ -485,7 +477,7 @@ const App: React.FC = () => {
                   </div>
                   
                   <div className="h-12 border-t border-black/5 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 flex items-center px-6 text-xs text-slate-400 dark:text-slate-500 justify-between shrink-0">
-                      <span>{text.length} characters</span>
+                      <span>{text.length} characters (Approx {Math.ceil(text.length / 4)} tokens)</span>
                       <span>markdown supported</span>
                   </div>
                 </>

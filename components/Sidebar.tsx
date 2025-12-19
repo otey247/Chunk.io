@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Settings, Zap, Info, Box, Brain, DollarSign, ArrowRightLeft, GitFork, Download, HelpCircle } from 'lucide-react';
 import { STRATEGIES } from '../constants';
@@ -125,7 +126,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </button>
                   
-                  {/* Tooltip Icon Trigger */}
                   <div 
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 cursor-help hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors z-10"
                     onMouseEnter={(e) => {
@@ -145,20 +145,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Basic Configuration */}
+          {/* Configuration (Tokens) */}
           <div id="param-controls">
-            <h2 className="text-slate-500 font-semibold mb-3 px-2 text-xs uppercase tracking-wider">Parameters</h2>
+            <h2 className="text-slate-500 font-semibold mb-3 px-2 text-xs uppercase tracking-wider">Parameters (Tokens)</h2>
             <div className="glass-panel rounded-xl p-4 space-y-5">
               <div>
                 <div className="flex justify-between mb-2">
-                  <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Target Size</label>
-                  <span className="text-electric-indigo font-mono text-xs">{chunkSize}</span>
+                  <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Target Chunk Size</label>
+                  <span className="text-electric-indigo font-mono text-xs">{chunkSize} toks</span>
                 </div>
                 <input
                   type="range"
-                  min="50"
-                  max="4000"
-                  step="50"
+                  min="64"
+                  max="4096"
+                  step="64"
                   value={chunkSize}
                   onChange={(e) => setChunkSize(Number(e.target.value))}
                   className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
@@ -168,13 +168,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div>
                 <div className="flex justify-between mb-2">
                   <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Overlap</label>
-                  <span className="text-electric-indigo font-mono text-xs">{overlap}</span>
+                  <span className="text-electric-indigo font-mono text-xs">{overlap} toks</span>
                 </div>
                 <input
                   type="range"
                   min="0"
-                  max="500"
-                  step="10"
+                  max="512"
+                  step="8"
                   value={overlap}
                   onChange={(e) => setOverlap(Number(e.target.value))}
                   className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
@@ -193,7 +193,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                  </div>
               )}
               
-              {/* Parent-Child Indexing */}
               <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-2">
                 <div className="flex items-center justify-between mb-3">
                    <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
@@ -215,13 +214,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="animate-in slide-in-from-top-2 duration-200">
                       <div className="flex justify-between mb-2">
                           <label className="text-slate-600 dark:text-slate-300 font-medium text-xs">Parent Size</label>
-                          <span className="text-electric-indigo font-mono text-xs">{parentChunkSize}</span>
+                          <span className="text-electric-indigo font-mono text-xs">{parentChunkSize} toks</span>
                       </div>
                       <input
                           type="range"
-                          min="500"
-                          max="8000"
-                          step="100"
+                          min="512"
+                          max="8192"
+                          step="128"
                           value={parentChunkSize}
                           onChange={(e) => setParentChunkSize(Number(e.target.value))}
                           className="w-full h-1 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-electric-indigo"
@@ -241,7 +240,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Brain className="w-3 h-3" /> AI Configuration
             </h2>
             <div className="glass-panel rounded-xl p-4 space-y-5 border-electric-indigo/20">
-              {/* Model Switcher */}
               <div>
                 <label className="text-slate-600 dark:text-slate-300 font-medium text-xs mb-2 block">Model</label>
                 <select 
@@ -255,7 +253,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </select>
               </div>
 
-              {/* Prompt Playground (Only for AI Strategies) */}
               {isAIStrategy && (
                  <div>
                     <label className="text-slate-600 dark:text-slate-300 font-medium text-xs mb-2 block">System Prompt</label>
@@ -268,7 +265,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                  </div>
               )}
 
-              {/* Enrichment Toggles */}
               <div>
                 <label className="text-slate-600 dark:text-slate-300 font-medium text-xs mb-3 block">Enrichment (Post-Process)</label>
                 <div className="space-y-2">
@@ -295,7 +291,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
 
-              {/* Cost Estimator */}
               <div className="bg-white dark:bg-slate-900 rounded p-2 flex items-center justify-between border border-black/5 dark:border-white/5">
                   <span className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-1">
                       <DollarSign className="w-3 h-3" /> Est. Cost
@@ -310,13 +305,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Fixed Tooltip Portal */}
+      {/* Tooltip */}
       {tooltip && (
         <div 
           className="fixed z-50 w-72 p-4 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
           style={{ 
-            left: Math.min(window.innerWidth - 300, tooltip.x), // Prevent right overflow
-            top: Math.min(window.innerHeight - 200, tooltip.y)  // Prevent bottom overflow
+            left: Math.min(window.innerWidth - 300, tooltip.x),
+            top: Math.min(window.innerHeight - 200, tooltip.y)
           }}
         >
           <div className="flex items-center justify-between mb-2">
